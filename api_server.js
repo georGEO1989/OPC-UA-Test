@@ -1,6 +1,7 @@
 // OPC-UA requirments
 const { OPCUAClient, AttributeIds } = require('node-opcua');
 const opcua = require('node-opcua');
+const { callbackify } = require("util");
 
 // API requirments
 var express = require('express');
@@ -50,13 +51,8 @@ app.get('/opc-api/techupdate', function (request, response) {
             }
 
             try {
-                await session.writeSingleNode(nodeId, dataToWrite, function (error, statusCode, diag) {
-                    if (!error) {
-                        console.log(" Write ok ");
-                    } else {
-                        console.log(" Write error: ", error);
-                    }
-                });
+                // we must either use the callback or the async/await scheme, not mix them
+                const statusCode = await session.writeSingleNode(nodeId, dataToWrite);
             }
             catch (error) {
                 console.log("Error Writing Single Node: ", error);
@@ -74,17 +70,14 @@ app.get('/opc-api/techupdate', function (request, response) {
         }
     };
 
-    try {
-        writeTechArrived(request.param('machine'), request.param('status'));
-    }
-    catch (error) {
-        console.log("Error updating tag: ", error);
-        response.send("Error Updating tag");
-    }
-    finally {
-        console.log(response.statusCode);
-        response.send("Updated tag");
-    }
+        callbackify(writeTechArrived)(request.param('machine'), request.param('status'), (err) => {
+           if (err) {
+               console.log("Error updating tag: ", err);
+               response.send("Error Updating tag");
+           } else {
+                response.send("Updated tag");
+           }
+        });
 });
 
 
